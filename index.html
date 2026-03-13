@@ -1,0 +1,424 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#000;
+color:white;
+}
+
+/* PANEL */
+
+#ai-panel{
+position:fixed;
+top:120px;
+left:calc(100% - 460px);
+
+width:420px;
+height:520px;
+
+background:#000;
+border:2px solid #333;
+border-radius:10px;
+
+display:flex;
+flex-direction:column;
+
+z-index:9999;
+
+min-width:300px;
+min-height:300px;
+}
+
+/* HEADER */
+
+#ai-header{
+background:linear-gradient(135deg,#5f4bff,#4b3cff);
+padding:12px;
+
+display:flex;
+justify-content:space-between;
+align-items:center;
+
+cursor:grab;
+user-select:none;
+}
+
+#ai-header.dragging{
+cursor:grabbing;
+}
+
+button{
+background:#222;
+border:none;
+color:white;
+padding:4px 10px;
+border-radius:4px;
+cursor:pointer;
+}
+
+/* SEARCH */
+
+#search{
+display:flex;
+padding:10px;
+background:#222;
+}
+
+#question{
+flex:1;
+border:none;
+background:transparent;
+color:white;
+padding:10px;
+outline:none;
+}
+
+#ask{
+background:#5f4bff;
+border:none;
+color:white;
+padding:10px;
+border-radius:6px;
+cursor:pointer;
+}
+
+/* ANSWER */
+
+#answer{
+flex:1;
+padding:16px;
+overflow-y:auto;
+background:#111;
+white-space:pre-wrap;
+}
+
+/* CHAT ICON */
+
+#launcher{
+position:fixed;
+bottom:30px;
+right:30px;
+
+width:60px;
+height:60px;
+
+border-radius:50%;
+background:#5f4bff;
+
+display:flex;
+align-items:center;
+justify-content:center;
+
+font-size:26px;
+cursor:pointer;
+
+z-index:9999;
+}
+
+/* RESIZE HANDLES */
+
+.resize{
+position:absolute;
+background:transparent;
+}
+
+/* left */
+
+#resize-left{
+left:0;
+top:0;
+width:6px;
+height:100%;
+cursor:ew-resize;
+}
+
+/* right */
+
+#resize-right{
+right:0;
+top:0;
+width:6px;
+height:100%;
+cursor:ew-resize;
+}
+
+/* top */
+
+#resize-top{
+top:0;
+left:0;
+width:100%;
+height:6px;
+cursor:ns-resize;
+}
+
+/* bottom */
+
+#resize-bottom{
+bottom:0;
+left:0;
+width:100%;
+height:6px;
+cursor:ns-resize;
+}
+
+/* corner */
+
+#resize-corner{
+bottom:0;
+right:0;
+width:16px;
+height:16px;
+cursor:nwse-resize;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="ai-panel">
+
+<div id="ai-header">
+
+<span>STEM AI Assistant</span>
+
+<div>
+<button id="dock">Dock</button>
+<button id="min">–</button>
+</div>
+
+</div>
+
+<div id="search">
+<input id="question" placeholder="Ask our Assistant..." />
+<button id="ask">Ask</button>
+</div>
+
+<div id="answer"></div>
+
+<!-- resize handles -->
+
+<div id="resize-left" class="resize"></div>
+<div id="resize-right" class="resize"></div>
+<div id="resize-top" class="resize"></div>
+<div id="resize-bottom" class="resize"></div>
+<div id="resize-corner" class="resize"></div>
+
+</div>
+
+<div id="launcher">🤖</div>
+
+<script>
+
+/* API */
+
+const API="https://sanjaypadmaraj-stem-llm-backend.hf.space/ask";
+
+const panel=document.getElementById("ai-panel");
+const header=document.getElementById("ai-header");
+const input=document.getElementById("question");
+const answer=document.getElementById("answer");
+
+let docked=false;
+
+/* ASK AI */
+
+async function askAI(){
+
+const q=input.value.trim();
+
+if(!q){
+answer.innerText="Please type a question.";
+return;
+}
+
+answer.innerText="Thinking...";
+
+try{
+
+const r=await fetch(API,{
+method:"POST",
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({question:q})
+});
+
+const data=await r.json();
+
+answer.innerText=data.answer || "No response";
+
+}catch{
+
+answer.innerText="Server error";
+
+}
+
+}
+
+document.getElementById("ask").onclick=askAI;
+
+input.addEventListener("keydown",e=>{
+if(e.key==="Enter") askAI();
+});
+
+/* LAUNCHER */
+
+document.getElementById("launcher").onclick=()=>{
+
+panel.style.display=
+panel.style.display==="none"?"flex":"none";
+
+};
+
+/* MINIMIZE */
+
+document.getElementById("min").onclick=()=>{
+panel.style.display="none";
+};
+
+/* DRAG SYSTEM */
+
+let dragEnabled=false;
+let dragging=false;
+let offsetX=0;
+let offsetY=0;
+
+header.ondblclick=()=>{
+
+dragEnabled=true;
+
+};
+
+header.onmousedown=(e)=>{
+
+if(!dragEnabled || docked) return;
+
+dragging=true;
+
+header.classList.add("dragging");
+
+offsetX=e.clientX-panel.offsetLeft;
+offsetY=e.clientY-panel.offsetTop;
+
+};
+
+document.onmousemove=(e)=>{
+
+if(!dragging) return;
+
+panel.style.left=(e.clientX-offsetX)+"px";
+panel.style.top=(e.clientY-offsetY)+"px";
+
+};
+
+document.onmouseup=()=>{
+
+dragging=false;
+header.classList.remove("dragging");
+
+};
+
+/* DOCK */
+
+document.getElementById("dock").onclick=()=>{
+
+docked=!docked;
+
+if(docked){
+
+panel.style.left="auto";
+panel.style.right="0";
+panel.style.top="0";
+panel.style.height="100vh";
+
+}else{
+
+panel.style.right="auto";
+panel.style.left="calc(100% - 460px)";
+panel.style.top="120px";
+panel.style.height="520px";
+
+}
+
+};
+
+/* RESIZE SYSTEM */
+
+let resizing=false;
+let mode=null;
+
+let startX,startY,startW,startH,startL,startT;
+
+document.querySelectorAll(".resize").forEach(r=>{
+
+r.onmousedown=(e)=>{
+
+mode=r.id;
+
+if(docked && (mode==="resize-left" || mode==="resize-right"))
+return;
+
+resizing=true;
+
+startX=e.clientX;
+startY=e.clientY;
+
+startW=panel.offsetWidth;
+startH=panel.offsetHeight;
+
+startL=panel.offsetLeft;
+startT=panel.offsetTop;
+
+e.stopPropagation();
+
+};
+
+});
+
+document.addEventListener("mousemove",(e)=>{
+
+if(!resizing) return;
+
+let dx=e.clientX-startX;
+let dy=e.clientY-startY;
+
+if(mode==="resize-right")
+panel.style.width=startW+dx+"px";
+
+if(mode==="resize-left"){
+panel.style.width=startW-dx+"px";
+panel.style.left=startL+dx+"px";
+}
+
+if(mode==="resize-bottom")
+panel.style.height=startH+dy+"px";
+
+if(mode==="resize-top"){
+panel.style.height=startH-dy+"px";
+panel.style.top=startT+dy+"px";
+}
+
+if(mode==="resize-corner"){
+panel.style.width=startW+dx+"px";
+panel.style.height=startH+dy+"px";
+}
+
+});
+
+document.addEventListener("mouseup",()=>{
+
+resizing=false;
+
+});
+
+</script>
+
+</body>
+</html>
